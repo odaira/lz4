@@ -122,28 +122,6 @@
 #  endif  /* _MSC_VER */
 #endif /* LZ4_FORCE_INLINE */
 
-/* LZ4_FORCE_O2_GCC_PPC64LE and LZ4_FORCE_O2_INLINE_GCC_PPC64LE
- * Gcc on ppc64le generates an unrolled SIMDized loop for LZ4_wildCopy,
- * together with a simple 8-byte copy loop as a fall-back path.
- * However, this optimization hurts the decompression speed by >30%,
- * because the execution does not go to the optimized loop
- * for typical compressible data, and all of the preamble checks
- * before going to the fall-back path become useless overhead.
- * This optimization happens only with the -O3 flag, and -O2 generates
- * a simple 8-byte copy loop.
- * With gcc on ppc64le, all of the LZ4_decompress_* and LZ4_wildCopy
- * functions are annotated with __attribute__((optimize("O2"))),
- * and also LZ4_wildCopy is forcibly inlined, so that the O2 attribute
- * of LZ4_wildCopy does not affect the compression speed.
- */
-#if defined(__PPC64__) && defined(__LITTLE_ENDIAN__) && defined(__GNUC__)
-#  define LZ4_FORCE_O2_GCC_PPC64LE __attribute__((optimize("O2")))
-#  define LZ4_FORCE_O2_INLINE_GCC_PPC64LE __attribute__((optimize("O2"))) LZ4_FORCE_INLINE
-#else
-#  define LZ4_FORCE_O2_GCC_PPC64LE
-#  define LZ4_FORCE_O2_INLINE_GCC_PPC64LE static
-#endif
-
 #if (defined(__GNUC__) && (__GNUC__ >= 3)) || (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 800)) || defined(__clang__)
 #  define expect(expr,value)    (__builtin_expect ((expr),(value)) )
 #else
@@ -280,8 +258,7 @@ static void LZ4_writeLE16(void* memPtr, U16 value)
 }
 
 /* customized variant of memcpy, which can overwrite up to 8 bytes beyond dstEnd */
-LZ4_FORCE_O2_INLINE_GCC_PPC64LE
-void LZ4_wildCopy(void* dstPtr, const void* srcPtr, void* dstEnd)
+static void LZ4_wildCopy(void* dstPtr, const void* srcPtr, void* dstEnd)
 {
     BYTE* d = (BYTE*)dstPtr;
     const BYTE* s = (const BYTE*)srcPtr;
@@ -1652,7 +1629,6 @@ LZ4_decompress_generic(
 
 /*===== Instantiate the API decoding functions. =====*/
 
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_safe(const char* source, char* dest, int compressedSize, int maxDecompressedSize)
 {
     return LZ4_decompress_generic(source, dest, compressedSize, maxDecompressedSize,
@@ -1660,7 +1636,6 @@ int LZ4_decompress_safe(const char* source, char* dest, int compressedSize, int 
                                   (BYTE*)dest, NULL, 0);
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_safe_partial(const char* src, char* dst, int compressedSize, int targetOutputSize, int dstCapacity)
 {
     dstCapacity = MIN(targetOutputSize, dstCapacity);
@@ -1669,7 +1644,6 @@ int LZ4_decompress_safe_partial(const char* src, char* dst, int compressedSize, 
                                   noDict, (BYTE*)dst, NULL, 0);
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_fast(const char* source, char* dest, int originalSize)
 {
     return LZ4_decompress_generic(source, dest, 0, originalSize,
@@ -1679,7 +1653,7 @@ int LZ4_decompress_fast(const char* source, char* dest, int originalSize)
 
 /*===== Instantiate a few more decoding cases, used more than once. =====*/
 
-LZ4_FORCE_O2_GCC_PPC64LE /* Exported, an obsolete API function. */
+/* Exported, an obsolete API function. */
 int LZ4_decompress_safe_withPrefix64k(const char* source, char* dest, int compressedSize, int maxOutputSize)
 {
     return LZ4_decompress_generic(source, dest, compressedSize, maxOutputSize,
@@ -1695,7 +1669,6 @@ int LZ4_decompress_fast_withPrefix64k(const char* source, char* dest, int origin
     return LZ4_decompress_fast(source, dest, originalSize);
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 static int LZ4_decompress_safe_withSmallPrefix(const char* source, char* dest, int compressedSize, int maxOutputSize,
                                                size_t prefixSize)
 {
@@ -1704,7 +1677,6 @@ static int LZ4_decompress_safe_withSmallPrefix(const char* source, char* dest, i
                                   (BYTE*)dest-prefixSize, NULL, 0);
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_safe_forceExtDict(const char* source, char* dest,
                                      int compressedSize, int maxOutputSize,
                                      const void* dictStart, size_t dictSize)
@@ -1714,7 +1686,6 @@ int LZ4_decompress_safe_forceExtDict(const char* source, char* dest,
                                   (BYTE*)dest, (const BYTE*)dictStart, dictSize);
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 static int LZ4_decompress_fast_extDict(const char* source, char* dest, int originalSize,
                                        const void* dictStart, size_t dictSize)
 {
@@ -1803,7 +1774,6 @@ int LZ4_decoderRingBufferSize(int maxBlockSize)
     If it's not possible, save the relevant part of decoded data into a safe buffer,
     and indicate where it stands using LZ4_setStreamDecode()
 */
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_safe_continue (LZ4_streamDecode_t* LZ4_streamDecode, const char* source, char* dest, int compressedSize, int maxOutputSize)
 {
     LZ4_streamDecode_t_internal* lz4sd = &LZ4_streamDecode->internal_donotuse;
@@ -1843,7 +1813,6 @@ int LZ4_decompress_safe_continue (LZ4_streamDecode_t* LZ4_streamDecode, const ch
     return result;
 }
 
-LZ4_FORCE_O2_GCC_PPC64LE
 int LZ4_decompress_fast_continue (LZ4_streamDecode_t* LZ4_streamDecode, const char* source, char* dest, int originalSize)
 {
     LZ4_streamDecode_t_internal* lz4sd = &LZ4_streamDecode->internal_donotuse;
